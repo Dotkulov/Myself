@@ -26,7 +26,7 @@ let tracks = [];
 let currentId = null;
 let seeking = false;
 
-const GITHUB_USER = ' Dotkulov';
+const GITHUB_USER = 'Dotkulov';
 const GITHUB_REPO = 'Myself';
 const MUSIC_FOLDER = 'music';
 
