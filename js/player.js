@@ -26,7 +26,6 @@ let tracks = [];
 let currentId = null;
 let seeking = false;
 
-// ⚠️ ВАШИ ДАННЫЕ GITHUB (убедитесь, что нет пробелов)
 const GITHUB_USER = 'Dotkulov';
 const GITHUB_REPO = 'Myself';
 const MUSIC_FOLDER = 'music';
@@ -237,8 +236,6 @@ async function loadTracksFromGitHub() {
     if (!response.ok) throw new Error('GitHub API вернул ошибку ' + response.status);
     
     const files = await response.json();
-    
-    // Фильтруем только файлы с расширением .mp3
     const mp3Files = files.filter(file => 
         file.type === 'file' && 
         file.name.toLowerCase().endsWith('.mp3')
@@ -252,23 +249,28 @@ async function loadTracksFromGitHub() {
     tracks = [];
     
     for (const file of mp3Files) {
-      // Создаем безопасную ссылку (кодируем пробелы и кириллицу)
       const safePath = file.path.split('/').map(encodeURIComponent).join('/');
       const audioUrl = `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/main/${safePath}`;
       
       let meta = { title: '', artist: '', cover: null };
       try {
         meta = await readId3FromUrl(audioUrl);
-        // ОТЛАДКА: Смотрим в консоли, что нашел парсер
-        console.log(`[Теги] ${file.name}:`, meta); 
       } catch (err) {
-        console.warn(`[Ошибка тегов] ${file.name}:`, err);
+        console.warn(`Ошибка тегов ${file.name}:`, err);
       }
       
       let coverUrl = '';
       if (meta.cover && meta.cover.data) {
-          const blob = new Blob([meta.cover.data], { type: meta.cover.mime });
-          coverUrl = URL.createObjectURL(blob);
+          try {
+              const bytes = meta.cover.data;
+              let binary = '';
+              for (let i = 0; i < bytes.byteLength; i++) {
+                  binary += String.fromCharCode(bytes[i]);
+              }
+              coverUrl = `data:${meta.cover.mime || 'image/jpeg'};base64,${window.btoa(binary)}`;
+          } catch (e) {
+              console.error("Ошибка конвертации обложки:", e);
+          }
       }
 
       tracks.push({
@@ -281,7 +283,6 @@ async function loadTracksFromGitHub() {
     }
 
     tracks.sort((a, b) => a.id.localeCompare(b.id));
-    
     showListError('');
     renderList();
   } catch (error) {
