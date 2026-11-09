@@ -26,6 +26,7 @@ let tracks = [];
 let currentId = null;
 let seeking = false;
 
+// ⚠️ ВАШИ ДАННЫЕ GITHUB (убедитесь, что нет пробелов)
 const GITHUB_USER = 'Dotkulov';
 const GITHUB_REPO = 'Myself';
 const MUSIC_FOLDER = 'music';
@@ -230,13 +231,18 @@ document.addEventListener('keydown', (e) => {
 
 async function loadTracksFromGitHub() {
   try {
-    const apiUrl = `https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/contents/${MUSIC_FOLDER}`;
+    const apiUrl = `https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/contents/${MUSIC_FOLDER}?t=${Date.now()}`;
     const response = await fetch(apiUrl);
     
-    if (!response.ok) throw new Error('GitHub API вернул ошибку. Проверьте настройки репозитория.');
+    if (!response.ok) throw new Error('GitHub API вернул ошибку ' + response.status);
     
     const files = await response.json();
-    const mp3Files = files.filter(file => file.name.toLowerCase().endsWith('.mp3'));
+    
+    // Фильтруем только файлы с расширением .mp3
+    const mp3Files = files.filter(file => 
+        file.type === 'file' && 
+        file.name.toLowerCase().endsWith('.mp3')
+    );
     
     if (mp3Files.length === 0) {
         listEl.innerHTML = '<p class="empty">В папке music нет MP3 файлов.</p>';
@@ -245,43 +251,44 @@ async function loadTracksFromGitHub() {
 
     tracks = [];
     
-    await Promise.all(mp3Files.map(async (file) => {
-      const audioUrl = file.download_url;
+    for (const file of mp3Files) {
+      // Создаем безопасную ссылку (кодируем пробелы и кириллицу)
+      const safePath = file.path.split('/').map(encodeURIComponent).join('/');
+      const audioUrl = `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/main/${safePath}`;
+      
+      let meta = { title: '', artist: '', cover: null };
       try {
-        const meta = await readId3FromUrl(audioUrl);
-        
-        let coverUrl = '';
-        if (meta.cover) {
-            const blob = new Blob([meta.cover.data], { type: meta.cover.mime });
-            coverUrl = URL.createObjectURL(blob);
-        }
-
-        tracks.push({
-          id: file.name,
-          title: meta.title || file.name.replace('.mp3', ''),
-          artist: meta.artist || 'Неизвестный исполнитель',
-          audioUrl: audioUrl,
-          coverUrl: coverUrl
-        });
-      } catch (e) {
-        console.warn(`Не удалось прочитать теги для ${file.name}`, e);
-        tracks.push({
-          id: file.name,
-          title: file.name.replace('.mp3', ''),
-          artist: 'Неизвестный исполнитель',
-          audioUrl: audioUrl,
-          coverUrl: ''
-        });
+        meta = await readId3FromUrl(audioUrl);
+        // ОТЛАДКА: Смотрим в консоли, что нашел парсер
+        console.log(`[Теги] ${file.name}:`, meta); 
+      } catch (err) {
+        console.warn(`[Ошибка тегов] ${file.name}:`, err);
       }
-    }));
+      
+      let coverUrl = '';
+      if (meta.cover && meta.cover.data) {
+          const blob = new Blob([meta.cover.data], { type: meta.cover.mime });
+          coverUrl = URL.createObjectURL(blob);
+      }
+
+      tracks.push({
+        id: file.name,
+        title: meta.title || file.name.replace('.mp3', ''),
+        artist: meta.artist || 'Неизвестный исполнитель',
+        audioUrl: audioUrl,
+        coverUrl: coverUrl
+      });
+    }
 
     tracks.sort((a, b) => a.id.localeCompare(b.id));
     
     showListError('');
     renderList();
   } catch (error) {
+    console.error(error);
     showListError(error.message || 'Не удалось загрузить каталог');
     listEl.innerHTML = '';
   }
 }
+
 loadTracksFromGitHub();
