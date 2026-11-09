@@ -26,8 +26,8 @@ let tracks = [];
 let currentId = null;
 let seeking = false;
 
-const GITHUB_USER = 'ваш_никнейм';
-const GITHUB_REPO = 'имя_репозитория';
+const GITHUB_USER = ' Dotkulov';
+const GITHUB_REPO = 'Myself';
 const MUSIC_FOLDER = 'music';
 
 const savedVolume = localStorage.getItem('player-volume');
